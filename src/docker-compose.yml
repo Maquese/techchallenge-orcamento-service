@@ -1,0 +1,40 @@
+services:
+  mysql:
+    container_name: mysql-orcamento
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: orcamentoservice
+      MYSQL_DATABASE: Orcamento
+      MYSQL_USER: appuser
+      MYSQL_PASSWORD: orcamentoservice
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data_orcamento:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uappuser", "-porcamentoservice"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  clienteveiculo-service:
+    build:
+      context: .
+      dockerfile: Dockerfile   # se o Dockerfile está na raiz
+    #depends_on:
+    #  mysql:
+    #    condition: service_healthy
+    ports:
+      - "80:80"
+    # environment:
+    #   ConnectionStrings__DefaultConnection: "Server=mysql;Port=3306;Database=ClienteVeiculo;User=root;Password=clienteveiculoservice;"
+    #   Jwt__SecretKey: "sua-chave-super-secreta-muito-longa-para-256bits-change-me"
+    #   Jwt__Issuer: "GestaoAutoRepara"
+    #   Jwt__Audience: "GestaoAutoReparaUsers"
+    #   Jwt__ExpirationMinutes: "60"
+    #   ASPNETCORE_URLS: "http://+:80"
+    restart: unless-stopped
+
+volumes:
+  mysql_data_orcamento:
