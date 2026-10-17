@@ -30,7 +30,7 @@ namespace AutoReparaAPI.Controllers
             return Ok(await aprovarOrcamentoHandler.Handle(orcamentoId));
         }
 
-            [HttpPost]
+        [HttpPost]
         public async Task<IActionResult> NegarOrcamento([FromServices] NegarOrcamentoHandler negarOrcamentoHandler, [FromBody] int orcamentoId)
         {
             await negarOrcamentoHandler.Handle(orcamentoId);
@@ -48,6 +48,13 @@ namespace AutoReparaAPI.Controllers
         public async Task<IActionResult> ListarOrcamentos([FromServices] ListarOrcamentoHandler listarOrcamentoHandler)
         {
             var orcamentos = await listarOrcamentoHandler.Handle();
+            return Ok(orcamentos);
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> OrcamentoAprovado([FromServices] OrcamentoAprovadoHandler listarOrcamentoHandler, [FromQuery]int ordemServicoId)
+        {
+            var orcamentos = await listarOrcamentoHandler.Handle(ordemServicoId);
             return Ok(orcamentos);
         }
     }

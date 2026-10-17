@@ -1,5 +1,5 @@
 services:
-  mysql:
+  mysql-orcamento:
     container_name: mysql-orcamento
     image: mysql:8.0
     restart: unless-stopped
@@ -9,7 +9,7 @@ services:
       MYSQL_USER: appuser
       MYSQL_PASSWORD: orcamentoservice
     ports:
-      - "3306:3306"
+      - "3308:3306"
     volumes:
       - mysql_data_orcamento:/var/lib/mysql
     healthcheck:
@@ -18,7 +18,7 @@ services:
       timeout: 5s
       retries: 20
 
-  clienteveiculo-service:
+  orcamento-service:
     build:
       context: .
       dockerfile: Dockerfile   # se o Dockerfile está na raiz

@@ -32,8 +32,11 @@ public class AdicionarOrcamentoHandler
         // if(ordemServico.Status != "Aguardando aprovação")
         //     throw new DomainException($"Ordem de servico no status incorreto {ordemServico.Status}");
         //ordemServico.CalcularValorOrdemServico().Value
+        // var orcamentoAindaEmAberto = await _orcamentoRepository.EncontrarOrcamentoPorOrdemServico(model.OrdemServicoId);
+        // if(orcamentoAindaEmAberto != null)
+        //     throw new Exception("Ainda há orcamento em aberto, finalize primeiro");
 
-        var orcamento = new Orcamento(model.OrdemServicoId, 0,model.Observacao);
+        var orcamento = new Orcamento(model.OrdemServicoId, model.ValorTotal,model.Observacao);
         await _orcamentoRepository.Adicionar(orcamento);
         return new BaseResponse
         {

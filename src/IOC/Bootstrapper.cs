@@ -25,7 +25,7 @@ namespace IOC;
             // }
             
             // // Console.WriteLine($"Using connection string: {connectionString}");
-             string connStr = "Server=localhost;Port=3306;Database=Orcamento;User=appuser;Password=orcamentoservice;";
+             string connStr = "Server=localhost;Port=3308;Database=Orcamento;User=appuser;Password=orcamentoservice;";
             //string connStr = "Server=mysql-ositemestoque;Port=3306;Database=OsItemEstoque;User=appuser;Password=ositemestoqueservice;";
 Console.WriteLine($"Using connection string: {connStr}");
             services.AddDbContext<EFContext>(options =>
@@ -43,6 +43,7 @@ Console.WriteLine($"Using connection string: {connStr}");
             services.AddScoped<PagarOrcamentoHandler>();
             services.AddScoped<ListarOrcamentoHandler>();
             services.AddScoped<NegarOrcamentoHandler>();
+            services.AddScoped<OrcamentoAprovadoHandler>();
 
         }
     }
