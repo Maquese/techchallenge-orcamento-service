@@ -1,7 +1,6 @@
 ﻿using Application.Interfaces;
 using Infra;
 using Infra.Repository;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Application.UseCases.Orcamentos;

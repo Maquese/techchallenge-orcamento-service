@@ -1,6 +1,5 @@
 ﻿using Domain.Aggregates;
 using Application.Interfaces;
-using Microsoft.EntityFrameworkCore;
 using Amazon.DynamoDBv2.DataModel;
 using Amazon.DynamoDBv2.DocumentModel;
 
