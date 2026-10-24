@@ -26,8 +26,8 @@ public class AdicionarOrcamentoHandler
         //     throw new DomainException($"Ordem de serviço com ID {model.OrdemServicoId} não encontrada.");
         // }
 
-        // if(!ordemServico.EstaAtivo())
-        //     throw new DomainException("Ordem de serviço inativa");
+        if(await _orcamentoRepository.ExisteOrcamentoEmAbertoParaOrdemdeSerivico(model.OrdemServicoId))
+            throw new DomainException($"Ordem de seriviço {model.OrdemServicoId} já tem Orçamento em aberto!");
 
         // if(ordemServico.Status != "Aguardando aprovação")
         //     throw new DomainException($"Ordem de servico no status incorreto {ordemServico.Status}");

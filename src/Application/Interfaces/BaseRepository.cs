@@ -8,7 +8,7 @@ public interface BaseRepository<T> where T : IEntity
     Task Atualizar(T entity);
     Task Inativar(T entity);
     Task<List<T>> ListarAtivos();
-    Task<T> ObterPorId(int id);
-    Task<List<T>> ListarPorIds(List<int> ids);
+    Task<T> ObterPorId(Guid id);
+    Task<List<T>> ListarPorIds(List<Guid> ids);
     Task Remover(T entity);
 }

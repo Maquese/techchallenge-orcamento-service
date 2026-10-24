@@ -2,13 +2,15 @@
 using Domain.Exceptions;
 using Application.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using Amazon.DynamoDBv2.DataModel;
 
 namespace Infra;
 
 public class BaseRepositoryImp<T> : BaseRepository<T> where T : IEntity
 {
-    protected readonly EFContext _context;
-    public BaseRepositoryImp(EFContext context)
+    //protected readonly EFContext _context;
+    protected readonly IDynamoDBContext _context;
+    public BaseRepositoryImp(IDynamoDBContext context)
     {
         _context = context;
     }
@@ -18,8 +20,7 @@ public class BaseRepositoryImp<T> : BaseRepository<T> where T : IEntity
     {
         try
         {
-            await _context.Set<T>().AddAsync(entity);
-            await _context.SaveChangesAsync();
+            await _context.SaveAsync(entity);
         }
         catch (DbUpdateException ex)
         {
@@ -52,35 +53,44 @@ public class BaseRepositoryImp<T> : BaseRepository<T> where T : IEntity
 
     public async Task Atualizar(T entity)
     {
-        _context.Set<T>().Update(entity);
-        await _context.SaveChangesAsync();
+        await _context.SaveAsync(entity);
     }
 
     public async Task Inativar(T entity)
     {
         entity.Inativar();
-        _context.Set<T>().Update(entity);
-        await _context.SaveChangesAsync();
+        await _context.SaveAsync(entity);
     }
 
     public async Task<List<T>> ListarAtivos()
     {
-        return await _context.Set<T>().Where(e => e.Ativo).ToListAsync();
+        return await _context.ScanAsync<T>(Array.Empty<ScanCondition>()).GetRemainingAsync();
     }
 
-    public virtual async Task<T> ObterPorId(int id)
+    public virtual async Task<T> ObterPorId(Guid id)
     {
-        return await _context.Set<T>().FindAsync(id);
+        var search = _context.QueryAsync<T>(id);
+        var itens = await search.GetRemainingAsync();
+
+        return itens.FirstOrDefault();
     }
 
-    public async Task<List<T>> ListarPorIds(List<int> ids)
+    public async Task<List<T>> ListarPorIds(List<Guid> ids)
     {
-        return await _context.Set<T>().Where(e => ids.Contains(e.Id) && e.Ativo).ToListAsync();
+        var batch = _context.CreateBatchGet<T>();
+
+        foreach (var id in ids)
+            batch.AddKey(id);
+
+        await batch.ExecuteAsync();
+
+        return batch.Results
+            .Where(item => item.Ativo)
+            .ToList();
     }
 
     public async Task Remover(T entity)
     {
-        _context.Remove(entity);
-        await _context.SaveChangesAsync();
+        await _context.DeleteAsync<T>(entity);
     }
 }

@@ -5,6 +5,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Application.UseCases.Orcamentos;
+using Amazon.DynamoDBv2;
+using Amazon;
+using Amazon.DynamoDBv2.DataModel;
 //using Application.Controllers;
 
 namespace IOC;
@@ -25,15 +28,30 @@ namespace IOC;
             // }
             
             // // Console.WriteLine($"Using connection string: {connectionString}");
-             string connStr = "Server=localhost;Port=3308;Database=Orcamento;User=appuser;Password=orcamentoservice;";
-            //string connStr = "Server=mysql-ositemestoque;Port=3306;Database=OsItemEstoque;User=appuser;Password=ositemestoqueservice;";
-Console.WriteLine($"Using connection string: {connStr}");
-            services.AddDbContext<EFContext>(options =>
-                options.UseMySQL(connStr));
-            using var serviceProvider = services.BuildServiceProvider();
-            using var scope = serviceProvider.CreateScope();
-            var dbContext = scope.ServiceProvider.GetRequiredService<EFContext>();
-            dbContext.Database.Migrate();
+//              string connStr = "Server=localhost;Port=3308;Database=Orcamento;User=appuser;Password=orcamentoservice;";
+//             //string connStr = "Server=mysql-ositemestoque;Port=3306;Database=OsItemEstoque;User=appuser;Password=ositemestoqueservice;";
+// Console.WriteLine($"Using connection string: {connStr}");
+//             services.AddDbContext<EFContext>(options =>
+//                 options.UseMySQL(connStr));
+//             using var serviceProvider = services.BuildServiceProvider();
+//             using var scope = serviceProvider.CreateScope();
+//             var dbContext = scope.ServiceProvider.GetRequiredService<EFContext>();
+//             dbContext.Database.Migrate();
+
+            var regionName = configuration["AWS:Region"]
+            ?? throw new InvalidOperationException("A configuração AWS:Region é obrigatória.");
+
+            services.AddSingleton<IAmazonDynamoDB>(
+                _ => new AmazonDynamoDBClient(RegionEndpoint.GetBySystemName(regionName)));
+
+
+            services.AddScoped<IDynamoDBContext>(sp =>
+            new DynamoDBContext(
+                sp.GetRequiredService<IAmazonDynamoDB>(),
+                new DynamoDBContextConfig
+                {
+                    DisableFetchingTableMetadata = true
+             }));
 
 
             services.AddTransient<OrcamentoRepository, OrcamentoRepositoryImp>();

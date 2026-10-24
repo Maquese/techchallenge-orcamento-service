@@ -15,7 +15,7 @@ public class AprovarOrcamentoHandler
         //_ordemServicoRepository = ordemServicoRepository;
     }
     
-     public async Task<BaseResponse> Handle(int orcamentoId)
+     public async Task<BaseResponse> Handle(Guid orcamentoId)
     {
         var orcamento = await _orcamentoRepository.ObterPorId(orcamentoId);
         if (orcamento == null)

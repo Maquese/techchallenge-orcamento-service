@@ -1,12 +1,15 @@
-﻿using Domain.Entidades;
+﻿using Amazon.DynamoDBv2.DataModel;
+using Domain.Entidades;
 
 namespace Domain.Aggregates;
 
+[DynamoDBTable("Orcamento")]
 public class Orcamento : IEntity
 {
     protected Orcamento() { }
-
-    public int Id { get; private set; }
+    [DynamoDBHashKey("orcamentoid")]
+    public Guid Id { get; private set; }
+     [DynamoDBRangeKey("ordemservicoid")]
     public int OrdemServicoId { get; private set; }
     public decimal ValorTotal { get; private set; }
     public string Observacao { get; private set; }
@@ -17,11 +20,12 @@ public class Orcamento : IEntity
     public DateTime DataCadastro { get; private set; }
     
 
-    public Orcamento(int ordemServicoId, decimal valorTotal, string observacoes)
+    public Orcamento(int ordemServicoId, decimal valorTotal, string observacao)
     {
+        Id = Guid.NewGuid();
         OrdemServicoId = ordemServicoId;
         ValorTotal = valorTotal;
-        Observacao = observacoes;
+        Observacao = observacao;
         OrcamentoAprovado = null;
         DataDecisaoClienteAprovacao = null;
         Ativo = true;
