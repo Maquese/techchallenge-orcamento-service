@@ -7,10 +7,12 @@ using Application.UseCases.Orcamentos;
 using Amazon.DynamoDBv2;
 using Amazon;
 using Amazon.DynamoDBv2.DataModel;
+using System.Diagnostics.CodeAnalysis;
 //using Application.Controllers;
 
 namespace IOC;
 
+[ExcludeFromCodeCoverage]
  public static class BootStrapper
     {
         public static void AddAppServices(this IServiceCollection services, IConfiguration configuration)

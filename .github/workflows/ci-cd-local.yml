@@ -1,0 +1,102 @@
+name: Feature CI
+
+permissions:
+  contents: read
+  pull-requests: write
+
+on:
+  push:
+    branches:
+      - 'feature/**'
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    name: Build and Test
+    runs-on: [self-hosted, linux, x64]
+
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Restaurar dependências
+        working-directory: src
+        run: dotnet restore OrcamentoServiceSolution.slnx
+
+      - name: Iniciar análise SonarQube
+        working-directory: src
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL || 'http://localhost:9000' }}
+        run: |
+          dotnet sonarscanner begin \
+            /k:"Orcamento" \
+            /d:sonar.host.url="$SONAR_HOST_URL" \
+            /d:sonar.token="$SONAR_TOKEN" \
+            /d:sonar.cs.opencover.reportsPaths="**/TestResults/coverage.xml"
+
+      - name: Build da solução
+        working-directory: src
+        run: dotnet build OrcamentoServiceSolution.slnx --no-restore --configuration Release
+
+      - name: Testar Domain com cobertura mínima de 80%
+        working-directory: src/Tests/Domain.Tests
+        run: |
+          mkdir -p TestResults
+          dotnet test Domain.Tests.csproj \
+            --no-build --configuration Release --verbosity minimal \
+            /p:CollectCoverage=true \
+            /p:CoverletOutput=TestResults/coverage.xml \
+            /p:CoverletOutputFormat=opencover \
+            /p:Threshold=80 \
+            /p:ThresholdType=line \
+            /p:ThresholdStat=total
+
+      - name: Testar Application com cobertura mínima de 80%
+        working-directory: src/Tests/Application.Tests
+        run: |
+          mkdir -p TestResults
+          dotnet test Application.Tests.csproj \
+            --no-build --configuration Release --verbosity minimal \
+            /p:CollectCoverage=true \
+            /p:CoverletOutput=TestResults/coverage.xml \
+            /p:CoverletOutputFormat=opencover \
+            /p:Threshold=80 \
+            /p:ThresholdType=line \
+            /p:ThresholdStat=total
+
+      - name: Finalizar análise SonarQube
+        if: always()
+        working-directory: src
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: dotnet sonarscanner end /d:sonar.token="$SONAR_TOKEN"
+
+  create-pr-to-main:
+    name: Open PR to main
+    needs: build-and-test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Criar PR para main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_URL=$(gh pr list --base main --head "${GITHUB_REF_NAME}" --state open --json url --jq '.[0].url // empty')
+
+          if [ -z "$PR_URL" ]; then
+            gh pr create \
+              --base main \
+              --head "${GITHUB_REF_NAME}" \
+              --title "feat: ${GITHUB_REF_NAME}" \
+              --body "## Resumo
+              - Build e testes executados na branch de feature
+              - PR criada automaticamente para revisão e merge em main"
+          else
+            echo "PR já existente para ${GITHUB_REF_NAME}: $PR_URL"
+          fi
