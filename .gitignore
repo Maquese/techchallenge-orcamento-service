@@ -55,3 +55,27 @@ CodeCoverage/
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+
+.sonarqube/
+
+# Terraform
+tterraform.tfstate
+terraform.tfstate.backup
+.terraform/
+.terraform.lock.hcl
+*.tfvars
+*.tfvars.json
+
+# GitHub Actions / self-hosted runner
+_work/
+actions-runner/
+runner/
+.runner/
+*.runner.log
+*.log
+.cache/
+tmp/
+
+# Local helper files
+oquefalta.md
+hpastress.sh

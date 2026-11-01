@@ -1,0 +1,52 @@
+name: Deploy to Docker Hub
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy-dockerhub:
+    name: Deploy Docker image
+    runs-on: [self-hosted, linux, x64]
+
+    env:
+      DOCKERHUB_IMAGE: maquese/clienteveiculo
+      DOCKERHUB_TAG: latest
+
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Restaurar dependências
+        working-directory: src
+        run: dotnet restore OrcamentoServiceSolution.slnx
+
+      - name: Build da solução
+        working-directory: src
+        run: dotnet build OrcamentoServiceSolution.slnx --no-restore --configuration Release
+
+      - name: Testar Domain com cobertura mínima de 80%
+        working-directory: src/Tests/Domain.Tests
+        run: dotnet test Domain.Tests.csproj --no-build --configuration Release --verbosity minimal /p:CollectCoverage=true /p:CoverletOutput=coverage.xml /p:CoverletOutputFormat=opencover /p:Threshold=80 /p:ThresholdType=line /p:ThresholdStat=total
+
+      - name: Testar Application com cobertura mínima de 80%
+        working-directory: src/Tests/Application.Tests
+        run: dotnet test Application.Tests.csproj --no-build --configuration Release --verbosity minimal /p:CollectCoverage=true /p:CoverletOutput=coverage.xml /p:CoverletOutputFormat=opencover /p:Threshold=80 /p:ThresholdType=line /p:ThresholdStat=total
+
+      - name: Login no Docker Hub
+        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+
+      - name: Build da imagem local
+        working-directory: src
+        run: |
+          docker build \
+            -t maquese/orcamento \
+            -t ${DOCKERHUB_IMAGE}:latest \
+            -t ${DOCKERHUB_IMAGE}:${DOCKERHUB_TAG} .
+
+      - name: Push para Docker Hub
+        run: |
+          docker push ${DOCKERHUB_IMAGE}:latest
+          docker push ${DOCKERHUB_IMAGE}:${DOCKERHUB_TAG}

@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/Tests/" />
+  <Project Path="Application/Application.csproj" />
+  <Project Path="Domain/Domain.csproj" />
+  <Project Path="Infra/Infra.csproj" />
+  <Project Path="IOC/IOC.csproj" />
+  <Project Path="OrcamentoService/OrcamentoService.csproj" />
+  <Project Path="Tests/Application.Tests/Application.Tests.csproj" />
+  <Project Path="Tests/Domain.Tests/Domain.Tests.csproj" />
+</Solution>
