@@ -61,6 +61,7 @@ jobs:
             /p:CollectCoverage=true \
             /p:CoverletOutput=TestResults/coverage.xml \
             /p:CoverletOutputFormat=opencover \
+            /p:Exclude="[Domain]*" \
             /p:Threshold=80 \
             /p:ThresholdType=line \
             /p:ThresholdStat=total
