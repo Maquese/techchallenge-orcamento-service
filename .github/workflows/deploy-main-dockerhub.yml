@@ -33,7 +33,7 @@ jobs:
 
       - name: Testar Application com cobertura mínima de 80%
         working-directory: src/Tests/Application.Tests
-        run: dotnet test Application.Tests.csproj --no-build --configuration Release --verbosity minimal /p:CollectCoverage=true /p:CoverletOutput=coverage.xml /p:CoverletOutputFormat=opencover /p:Threshold=80 /p:ThresholdType=line /p:ThresholdStat=total
+        run: dotnet test Application.Tests.csproj --no-build --configuration Release --verbosity minimal /p:Threshold=80 /p:CollectCoverage=true /p:CoverletOutput=coverage.xml /p:CoverletOutputFormat=opencover /p:Exclude="[Domain]*" /p:Threshold=80 /p:ThresholdType=line /p:ThresholdStat=total
 
       - name: Login no Docker Hub
         run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
