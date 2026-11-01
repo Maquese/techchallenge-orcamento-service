@@ -2,9 +2,9 @@
 <CoverageSession>
   <Summary numSequencePoints="307" visitedSequencePoints="185" numBranchPoints="80" visitedBranchPoints="26" sequenceCoverage="60.26" branchCoverage="32.5" maxCyclomaticComplexity="85" minCyclomaticComplexity="46" visitedClasses="19" numClasses="23" visitedMethods="43" numMethods="66" />
   <Modules>
-    <Module hash="217DBD86-292E-4AFD-8550-D0AD909B71D5">
+    <Module hash="9E1B968F-CAA9-42B4-BE1E-9B4823BD069B">
       <ModulePath>Application.dll</ModulePath>
-      <ModuleTime>2026-11-01T08:20:16</ModuleTime>
+      <ModuleTime>2026-11-01T08:40:59</ModuleTime>
       <ModuleName>Application</ModuleName>
       <Files>
         <File uid="1" fullPath="C:\Users\kenne\OneDrive\Desktop\techchallenge-orcamento-service\src\Application\UseCases\Orcamentos\AdicionarOrcamentoHandler.cs" />
@@ -538,9 +538,9 @@
         </Class>
       </Classes>
     </Module>
-    <Module hash="23C55D03-6092-41C0-A003-FAD942C56483">
+    <Module hash="787BD0E9-195D-4282-B980-0948B67F1B40">
       <ModulePath>Domain.dll</ModulePath>
-      <ModuleTime>2026-11-01T08:20:16</ModuleTime>
+      <ModuleTime>2026-11-01T08:40:59</ModuleTime>
       <ModuleName>Domain</ModuleName>
       <Files>
         <File uid="10" fullPath="C:\Users\kenne\OneDrive\Desktop\techchallenge-orcamento-service\src\Domain\VOs\CelularVO.cs" />

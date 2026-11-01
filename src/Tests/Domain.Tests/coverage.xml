@@ -2,9 +2,9 @@
 <CoverageSession>
   <Summary numSequencePoints="166" visitedSequencePoints="160" numBranchPoints="54" visitedBranchPoints="48" sequenceCoverage="96.38" branchCoverage="88.88" maxCyclomaticComplexity="85" minCyclomaticComplexity="85" visitedClasses="7" numClasses="7" visitedMethods="35" numMethods="41" />
   <Modules>
-    <Module hash="943D3D36-8156-42ED-8B5E-B30281160EEA">
+    <Module hash="288CB8D3-EEF1-472E-A17C-40E22E5C9DE4">
       <ModulePath>Domain.dll</ModulePath>
-      <ModuleTime>2026-11-01T08:20:15</ModuleTime>
+      <ModuleTime>2026-11-01T08:40:59</ModuleTime>
       <ModuleName>Domain</ModuleName>
       <Files>
         <File uid="1" fullPath="C:\Users\kenne\OneDrive\Desktop\techchallenge-orcamento-service\src\Domain\VOs\CelularVO.cs" />
