@@ -1,77 +1,108 @@
-﻿
-using Domain.Exceptions;
+using Application.Exceptions;
 using Application.Interfaces;
+using Application.Models.Requests;
 using Application.Models.Responses;
-using System.Diagnostics;
+using Domain.Exceptions;
 
 namespace Application.UseCases.Orcamentos;
 
 public class PagarOrcamentoHandler
 {
     private readonly OrcamentoRepository _orcamentoRepository;
-    //private readonly OrdemServicoRepository _ordemServicoRepository;
-    //private readonly ILogger<PagarOrcamentoHandler> _logger;
+    private readonly IMercadoPagoPaymentGateway _paymentGateway;
 
-    public PagarOrcamentoHandler(OrcamentoRepository orcamentoRepository)
-                                 //OrdemServicoRepository ordemServicoRepository,
-                                 //ILogger<PagarOrcamentoHandler> logger)
+    public PagarOrcamentoHandler(
+        OrcamentoRepository orcamentoRepository,
+        IMercadoPagoPaymentGateway paymentGateway)
     {
         _orcamentoRepository = orcamentoRepository;
-        //_ordemServicoRepository = ordemServicoRepository;
-        //_logger = logger;
+        _paymentGateway = paymentGateway;
     }
 
-    public async Task<BaseResponse> Handle(Guid orcamentoId)
+    public async Task<PagamentoOrcamentoResponse> Handle(
+        Guid orcamentoId,
+        PagarOrcamentoRequest request,
+        CancellationToken cancellationToken)
     {
         var orcamento = await _orcamentoRepository.ObterPorId(orcamentoId);
         if (orcamento == null)
         {
-            throw new DomainException($"Orçamento com ID {orcamentoId} não encontrado.");
+            throw new OrcamentoNaoEncontradoException(
+                $"Orçamento com ID {orcamentoId} não encontrado.");
         }
 
-        if(orcamento.DataDecisaoClientePagamento != null)
+        if (orcamento.DataDecisaoClientePagamento != null)
         {
             throw new DomainException($"Orçamento com ID {orcamentoId} já foi decidido pelo cliente.");
         }
 
-        // var ordemServico = await _ordemServicoRepository.ObterPorId(orcamento.OrdemServicoId);
-        // if (ordemServico == null)
-        // {
-        //     throw new DomainException($"Ordem de serviço com ID {orcamento.OrdemServicoId} não encontrada.");
-        // }
-        // using var scope = _logger.BeginScope(
-        //     "correlation_id={CorrelationId} event_type={EventType} operation={Operation} order_id={OrderId} vehicle_id={VehicleId} status={Status}",
-        //     Activity.Current?.TraceId.ToString() ?? "n/a",
-        //     "order_processing",
-        //     "finalize_order",
-        //     ordemServico.Id,
-        //     ordemServico.VeiculoId,
-        //     ordemServico.Status);
-
-        // if(ordemServico.Status != "Finalizada")
-        // {
-        //     throw new DomainException($"Ordem de serviço com ID {ordemServico.Id} não está no status 'Orçamento Aprovado' para pagamento de orçamento.");
-        // }
-
-        orcamento.MarcarOrcamentoPago();
-        //ordemServico.OrdemServicoEntregue();
-        await _orcamentoRepository.Atualizar(orcamento);
-        // _logger.LogInformation(
-        //     "Orçamento pago com sucesso {@Payment}",
-        //     new
-        //     {
-        //         TempoGasto = (DateTime.Now - ordemServico.DataAbertura).TotalMilliseconds,
-        //         OrcamentoId = orcamento.Id,
-        //         OrderId = ordemServico.Id,
-        //         VehicleId = ordemServico.VeiculoId,
-        //         Status = ordemServico.Status,
-        //         Data = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")
-        //     });
-        return new BaseResponse
+        if (orcamento.OrcamentoAprovado != true)
         {
-            Success = true, 
-            Message = "Orcamento pago com sucesso",
-            Data = orcamento.Id
-        };
+            throw new DomainException("O orçamento precisa estar aprovado para receber pagamento.");
+        }
+
+        if (request.IdempotencyKey == Guid.Empty)
+        {
+            throw new DomainException("A chave de idempotência deve ser informada.");
+        }
+
+        var idempotencyKey = request.IdempotencyKey.ToString();
+        if (orcamento.MercadoPagoIdempotencyKey is not null &&
+            !string.Equals(
+                orcamento.MercadoPagoIdempotencyKey,
+                idempotencyKey,
+                StringComparison.Ordinal) &&
+            !PodeTentarNovamente(orcamento.MercadoPagoPaymentStatus))
+        {
+            throw new DomainException(
+                "Já existe um pagamento em processamento. Reutilize a chave de idempotência da tentativa.");
+        }
+
+        orcamento.RegistrarChaveIdempotenciaPagamento(idempotencyKey);
+        await _orcamentoRepository.Atualizar(orcamento);
+
+        MercadoPagoPaymentResult payment;
+        try
+        {
+            payment = await _paymentGateway.CreatePaymentAsync(
+                new MercadoPagoPaymentRequest(
+                    idempotencyKey,
+                    orcamento.Id.ToString(),
+                    orcamento.ValorTotal,
+                    request.CardToken,
+                    request.PaymentMethodId,
+                    request.Installments,
+                    request.PayerEmail),
+                cancellationToken);
+        }
+        catch (PaymentProviderException exception) when (
+            exception.StatusCode is 400 or 422)
+        {
+            orcamento.LimparChaveIdempotenciaPagamento();
+            await _orcamentoRepository.Atualizar(orcamento);
+            throw;
+        }
+
+        orcamento.RegistrarResultadoPagamento(
+            payment.OrderId,
+            payment.PaymentId,
+            payment.Status,
+            payment.StatusDetail);
+        await _orcamentoRepository.Atualizar(orcamento);
+
+        var pago = orcamento.OrcamentoPago == true;
+        return new PagamentoOrcamentoResponse(
+            orcamento.Id,
+            orcamento.ValorTotal,
+            payment.OrderId,
+            payment.PaymentId,
+            payment.Status,
+            payment.StatusDetail,
+            pago);
     }
+
+    private static bool PodeTentarNovamente(string? status) =>
+        string.Equals(status, "failed", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(status, "rejected", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(status, "cancelled", StringComparison.OrdinalIgnoreCase);
 }
