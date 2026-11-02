@@ -1,4 +1,5 @@
 using Application.Interfaces;
+using Application.Exceptions;
 using Application.Models.Requests;
 using Application.UseCases.Orcamentos;
 using Domain.Aggregates;
@@ -130,6 +131,70 @@ public class OrcamentoHandlersTests
     }
 
     [Fact]
+    public async Task Pagar_DeveExigirMesmaChaveQuandoPagamentoEstaPendente()
+    {
+        var orcamento = NovoOrcamento();
+        orcamento.AprovarOrcamento();
+        var repository = RepositoryComOrcamento(orcamento.Id, orcamento);
+        var gateway = new Mock<IMercadoPagoPaymentGateway>();
+        gateway.Setup(g => g.CreatePaymentAsync(
+                It.IsAny<MercadoPagoPaymentRequest>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new MercadoPagoPaymentResult(
+                "order-id",
+                "payment-id",
+                "pending",
+                "waiting_for_payment"));
+        var handler = new PagarOrcamentoHandler(repository.Object, gateway.Object);
+        var primeiraTentativa = NovaSolicitacaoPagamento(orcamento.Id);
+
+        await handler.Handle(orcamento.Id, primeiraTentativa, CancellationToken.None);
+
+        await Assert.ThrowsAsync<DomainException>(() =>
+            handler.Handle(
+                orcamento.Id,
+                primeiraTentativa with { IdempotencyKey = Guid.NewGuid() },
+                CancellationToken.None));
+
+        gateway.Verify(g => g.CreatePaymentAsync(
+            It.IsAny<MercadoPagoPaymentRequest>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Pagar_DevePermitirNovaChaveQuandoMercadoPagoRecusaRequisicao()
+    {
+        var orcamento = NovoOrcamento();
+        orcamento.AprovarOrcamento();
+        var repository = RepositoryComOrcamento(orcamento.Id, orcamento);
+        var gateway = new Mock<IMercadoPagoPaymentGateway>();
+        gateway.SetupSequence(g => g.CreatePaymentAsync(
+                It.IsAny<MercadoPagoPaymentRequest>(),
+                It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new PaymentProviderException(400))
+            .ReturnsAsync(new MercadoPagoPaymentResult(
+                "order-id",
+                "payment-id",
+                "processed",
+                "accredited"));
+        var handler = new PagarOrcamentoHandler(repository.Object, gateway.Object);
+        var request = NovaSolicitacaoPagamento(orcamento.Id);
+
+        await Assert.ThrowsAsync<PaymentProviderException>(() =>
+            handler.Handle(orcamento.Id, request, CancellationToken.None));
+
+        var result = await handler.Handle(
+            orcamento.Id,
+            request with { IdempotencyKey = Guid.NewGuid() },
+            CancellationToken.None);
+
+        Assert.True(result.Pago);
+        gateway.Verify(g => g.CreatePaymentAsync(
+            It.IsAny<MercadoPagoPaymentRequest>(),
+            It.IsAny<CancellationToken>()), Times.Exactly(2));
+    }
+
+    [Fact]
     public async Task Negar_DeveFalharQuandoOrcamentoNaoEncontrado()
     {
         var id = Guid.NewGuid();
@@ -165,15 +230,63 @@ public class OrcamentoHandlersTests
     public async Task Pagar_DeveAtualizarOrcamentoEncontrado()
     {
         var orcamento = NovoOrcamento();
+        orcamento.AprovarOrcamento();
         var repository = RepositoryComOrcamento(orcamento.Id, orcamento);
+        var gateway = new Mock<IMercadoPagoPaymentGateway>();
+        gateway.Setup(g => g.CreatePaymentAsync(
+                It.IsAny<MercadoPagoPaymentRequest>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new MercadoPagoPaymentResult(
+                "order-id",
+                "payment-id",
+                "processed",
+                "accredited"));
+        var request = NovaSolicitacaoPagamento(orcamento.Id);
 
-        var response = await new PagarOrcamentoHandler(repository.Object).Handle(orcamento.Id);
+        var response = await new PagarOrcamentoHandler(repository.Object, gateway.Object)
+            .Handle(orcamento.Id, request, CancellationToken.None);
 
-        Assert.True(response.Success);
-        Assert.Equal("Orcamento pago com sucesso", response.Message);
-        Assert.Equal(orcamento.Id, Assert.IsType<Guid>(response.Data));
+        Assert.Equal(orcamento.Id, response.OrcamentoId);
+        Assert.Equal(250m, response.Valor);
+        Assert.Equal("order-id", response.MercadoPagoOrderId);
+        Assert.Equal("payment-id", response.MercadoPagoPaymentId);
+        Assert.Equal("processed", response.Status);
+        Assert.True(response.Pago);
         Assert.True(orcamento.OrcamentoPago);
-        repository.Verify(r => r.Atualizar(orcamento), Times.Once);
+        Assert.Equal("order-id", orcamento.MercadoPagoOrderId);
+        gateway.Verify(g => g.CreatePaymentAsync(
+            It.Is<MercadoPagoPaymentRequest>(payment =>
+                payment.Amount == orcamento.ValorTotal &&
+                payment.ExternalReference == orcamento.Id.ToString() &&
+                payment.CardToken == request.CardToken),
+            It.IsAny<CancellationToken>()), Times.Once);
+        repository.Verify(r => r.Atualizar(orcamento), Times.Exactly(2));
+    }
+
+    [Fact]
+    public async Task Pagar_DeveRegistrarRecusaSemMarcarOrcamentoComoPago()
+    {
+        var orcamento = NovoOrcamento();
+        orcamento.AprovarOrcamento();
+        var repository = RepositoryComOrcamento(orcamento.Id, orcamento);
+        var gateway = new Mock<IMercadoPagoPaymentGateway>();
+        gateway.Setup(g => g.CreatePaymentAsync(
+                It.IsAny<MercadoPagoPaymentRequest>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new MercadoPagoPaymentResult(
+                "order-id",
+                "payment-id",
+                "failed",
+                "cc_rejected_other_reason"));
+
+        var response = await new PagarOrcamentoHandler(repository.Object, gateway.Object)
+            .Handle(orcamento.Id, NovaSolicitacaoPagamento(orcamento.Id), CancellationToken.None);
+
+        Assert.False(response.Pago);
+        Assert.Null(orcamento.OrcamentoPago);
+        Assert.Null(orcamento.DataDecisaoClientePagamento);
+        Assert.Equal("failed", orcamento.MercadoPagoPaymentStatus);
+        repository.Verify(r => r.Atualizar(orcamento), Times.Exactly(2));
     }
 
     [Fact]
@@ -181,20 +294,45 @@ public class OrcamentoHandlersTests
     {
         var id = Guid.NewGuid();
         var repository = RepositoryComOrcamento(id, null);
+        var gateway = new Mock<IMercadoPagoPaymentGateway>();
+
+        await Assert.ThrowsAsync<OrcamentoNaoEncontradoException>(() =>
+            new PagarOrcamentoHandler(repository.Object, gateway.Object)
+                .Handle(id, NovaSolicitacaoPagamento(id), CancellationToken.None));
+
+        gateway.Verify(g => g.CreatePaymentAsync(
+            It.IsAny<MercadoPagoPaymentRequest>(),
+            It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Pagar_DeveFalharQuandoOrcamentoNaoFoiAprovado()
+    {
+        var orcamento = NovoOrcamento();
+        var repository = RepositoryComOrcamento(orcamento.Id, orcamento);
+        var gateway = new Mock<IMercadoPagoPaymentGateway>();
 
         await Assert.ThrowsAsync<DomainException>(() =>
-            new PagarOrcamentoHandler(repository.Object).Handle(id));
+            new PagarOrcamentoHandler(repository.Object, gateway.Object)
+                .Handle(orcamento.Id, NovaSolicitacaoPagamento(orcamento.Id), CancellationToken.None));
+
+        gateway.Verify(g => g.CreatePaymentAsync(
+            It.IsAny<MercadoPagoPaymentRequest>(),
+            It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
     public async Task Pagar_DeveFalharQuandoPagamentoJaFoiDecidido()
     {
         var orcamento = NovoOrcamento();
+        orcamento.AprovarOrcamento();
         orcamento.MarcarOrcamentoNaoPago();
         var repository = RepositoryComOrcamento(orcamento.Id, orcamento);
+        var gateway = new Mock<IMercadoPagoPaymentGateway>();
 
         await Assert.ThrowsAsync<DomainException>(() =>
-            new PagarOrcamentoHandler(repository.Object).Handle(orcamento.Id));
+            new PagarOrcamentoHandler(repository.Object, gateway.Object)
+                .Handle(orcamento.Id, NovaSolicitacaoPagamento(orcamento.Id), CancellationToken.None));
     }
 
     [Theory]
@@ -264,6 +402,16 @@ public class OrcamentoHandlersTests
     }
 
     private static Orcamento NovoOrcamento() => new(42, 250m, "Serviço");
+
+    private static PagarOrcamentoRequest NovaSolicitacaoPagamento(Guid orcamentoId) => new()
+    {
+        OrcamentoId = orcamentoId,
+        CardToken = "card-token-from-sdk",
+        PaymentMethodId = "visa",
+        Installments = 1,
+        PayerEmail = "buyer@example.com",
+        IdempotencyKey = Guid.NewGuid()
+    };
 
     private static Mock<OrcamentoRepository> RepositoryComOrcamento(Guid id, Orcamento? orcamento)
     {

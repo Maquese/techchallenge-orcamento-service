@@ -8,6 +8,7 @@ using Amazon.DynamoDBv2;
 using Amazon;
 using Amazon.DynamoDBv2.DataModel;
 using System.Diagnostics.CodeAnalysis;
+using Infra.MercadoPago;
 //using Application.Controllers;
 
 namespace IOC;
@@ -54,6 +55,8 @@ namespace IOC;
                     DisableFetchingTableMetadata = true
              }));
 
+            services.AddHttpClient<IMercadoPagoPaymentGateway, MercadoPagoPaymentGateway>(
+                client => client.BaseAddress = new Uri("https://api.mercadopago.com/"));
 
             services.AddTransient<OrcamentoRepository, OrcamentoRepositoryImp>();
 

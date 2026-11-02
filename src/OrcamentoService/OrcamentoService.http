@@ -1,6 +1,16 @@
 @OrcamentoService_HostAddress = http://localhost:5184
 
-GET {{OrcamentoService_HostAddress}}/weatherforecast/
+### Processar pagamento de um orçamento aprovado
+### Substitua CardToken pelo token temporário gerado no cliente com o SDK do Mercado Pago.
+POST {{OrcamentoService_HostAddress}}/api/Orcamento/PagamentoEfetuado
+Content-Type: application/json
 Accept: application/json
 
-###
+{
+  "orcamentoId": "00000000-0000-0000-0000-000000000000",
+  "cardToken": "CARD_TOKEN_GERADO_PELO_SDK",
+  "paymentMethodId": "visa",
+  "installments": 1,
+  "payerEmail": "test_user_123456@testuser.com",
+  "idempotencyKey": "f4ed6c0c-52bc-4bdb-ae0c-463ce50d1014"
+}

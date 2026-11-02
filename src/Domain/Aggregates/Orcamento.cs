@@ -17,6 +17,11 @@ public class Orcamento : IEntity
     public DateTime? DataDecisaoClienteAprovacao { get; private set; }
     public bool? OrcamentoPago { get; private set; }
     public DateTime? DataDecisaoClientePagamento { get; private set; }
+    public string? MercadoPagoOrderId { get; private set; }
+    public string? MercadoPagoPaymentId { get; private set; }
+    public string? MercadoPagoIdempotencyKey { get; private set; }
+    public string? MercadoPagoPaymentStatus { get; private set; }
+    public string? MercadoPagoPaymentStatusDetail { get; private set; }
     public DateTime DataCadastro { get; private set; }
     
 
@@ -55,6 +60,34 @@ public class Orcamento : IEntity
     {
         OrcamentoPago = true;
         DataDecisaoClientePagamento = DateTime.Now;
+    }
+
+    public void RegistrarResultadoPagamento(
+        string orderId,
+        string? paymentId,
+        string status,
+        string? statusDetail)
+    {
+        MercadoPagoOrderId = orderId;
+        MercadoPagoPaymentId = paymentId;
+        MercadoPagoPaymentStatus = status;
+        MercadoPagoPaymentStatusDetail = statusDetail;
+
+        if (string.Equals(status, "processed", StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(statusDetail, "accredited", StringComparison.OrdinalIgnoreCase))
+        {
+            MarcarOrcamentoPago();
+        }
+    }
+
+    public void RegistrarChaveIdempotenciaPagamento(string idempotencyKey)
+    {
+        MercadoPagoIdempotencyKey = idempotencyKey;
+    }
+
+    public void LimparChaveIdempotenciaPagamento()
+    {
+        MercadoPagoIdempotencyKey = null;
     }
 
     public void MarcarOrcamentoNaoPago()
