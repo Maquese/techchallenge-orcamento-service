@@ -41,6 +41,12 @@ public class PagarOrcamentoHandler
             throw new DomainException("O orçamento precisa estar aprovado para receber pagamento.");
         }
 
+        if (orcamento.ValorTotal <= 0 || decimal.Round(orcamento.ValorTotal, 2) != orcamento.ValorTotal)
+        {
+            throw new DomainException(
+                "O valor do orçamento deve ser maior que zero e ter no máximo duas casas decimais para pagamento.");
+        }
+
         if (request.IdempotencyKey == Guid.Empty)
         {
             throw new DomainException("A chave de idempotência deve ser informada.");
@@ -58,7 +64,7 @@ public class PagarOrcamentoHandler
                 "Já existe um pagamento em processamento. Reutilize a chave de idempotência da tentativa.");
         }
 
-        orcamento.RegistrarChaveIdempotenciaPagamento(idempotencyKey);
+        orcamento.IniciarPagamento(idempotencyKey);
         await _orcamentoRepository.Atualizar(orcamento);
 
         MercadoPagoPaymentResult payment;
@@ -78,13 +84,12 @@ public class PagarOrcamentoHandler
         catch (PaymentProviderException exception) when (
             exception.StatusCode is 400 or 422)
         {
-            orcamento.LimparChaveIdempotenciaPagamento();
+            orcamento.RegistrarFalhaAoIniciarPagamento();
             await _orcamentoRepository.Atualizar(orcamento);
             throw;
         }
 
         orcamento.RegistrarResultadoPagamento(
-            payment.OrderId,
             payment.PaymentId,
             payment.Status,
             payment.StatusDetail);
@@ -94,7 +99,6 @@ public class PagarOrcamentoHandler
         return new PagamentoOrcamentoResponse(
             orcamento.Id,
             orcamento.ValorTotal,
-            payment.OrderId,
             payment.PaymentId,
             payment.Status,
             payment.StatusDetail,

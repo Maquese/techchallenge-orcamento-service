@@ -140,8 +140,12 @@ public class OrcamentoHandlersTests
         gateway.Setup(g => g.CreatePaymentAsync(
                 It.IsAny<MercadoPagoPaymentRequest>(),
                 It.IsAny<CancellationToken>()))
+            .Callback<MercadoPagoPaymentRequest, CancellationToken>((_, _) =>
+            {
+                Assert.Equal("processing", orcamento.MercadoPagoPaymentStatus);
+                repository.Verify(r => r.Atualizar(orcamento), Times.Once);
+            })
             .ReturnsAsync(new MercadoPagoPaymentResult(
-                "order-id",
                 "payment-id",
                 "pending",
                 "waiting_for_payment"));
@@ -149,6 +153,10 @@ public class OrcamentoHandlersTests
         var primeiraTentativa = NovaSolicitacaoPagamento(orcamento.Id);
 
         await handler.Handle(orcamento.Id, primeiraTentativa, CancellationToken.None);
+
+        Assert.Equal("pending", orcamento.MercadoPagoPaymentStatus);
+        Assert.Equal("waiting_for_payment", orcamento.MercadoPagoPaymentStatusDetail);
+        repository.Verify(r => r.Atualizar(orcamento), Times.Exactly(2));
 
         await Assert.ThrowsAsync<DomainException>(() =>
             handler.Handle(
@@ -173,9 +181,8 @@ public class OrcamentoHandlersTests
                 It.IsAny<CancellationToken>()))
             .ThrowsAsync(new PaymentProviderException(400))
             .ReturnsAsync(new MercadoPagoPaymentResult(
-                "order-id",
                 "payment-id",
-                "processed",
+                "approved",
                 "accredited"));
         var handler = new PagarOrcamentoHandler(repository.Object, gateway.Object);
         var request = NovaSolicitacaoPagamento(orcamento.Id);
@@ -189,6 +196,10 @@ public class OrcamentoHandlersTests
             CancellationToken.None);
 
         Assert.True(result.Pago);
+        Assert.True(orcamento.OrcamentoPago);
+        Assert.Equal("approved", orcamento.MercadoPagoPaymentStatus);
+        Assert.Equal("accredited", orcamento.MercadoPagoPaymentStatusDetail);
+        repository.Verify(r => r.Atualizar(orcamento), Times.Exactly(4));
         gateway.Verify(g => g.CreatePaymentAsync(
             It.IsAny<MercadoPagoPaymentRequest>(),
             It.IsAny<CancellationToken>()), Times.Exactly(2));
@@ -237,9 +248,8 @@ public class OrcamentoHandlersTests
                 It.IsAny<MercadoPagoPaymentRequest>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(new MercadoPagoPaymentResult(
-                "order-id",
                 "payment-id",
-                "processed",
+                "approved",
                 "accredited"));
         var request = NovaSolicitacaoPagamento(orcamento.Id);
 
@@ -248,12 +258,11 @@ public class OrcamentoHandlersTests
 
         Assert.Equal(orcamento.Id, response.OrcamentoId);
         Assert.Equal(250m, response.Valor);
-        Assert.Equal("order-id", response.MercadoPagoOrderId);
         Assert.Equal("payment-id", response.MercadoPagoPaymentId);
-        Assert.Equal("processed", response.Status);
+        Assert.Equal("approved", response.Status);
         Assert.True(response.Pago);
         Assert.True(orcamento.OrcamentoPago);
-        Assert.Equal("order-id", orcamento.MercadoPagoOrderId);
+        Assert.Equal("payment-id", orcamento.MercadoPagoPaymentId);
         gateway.Verify(g => g.CreatePaymentAsync(
             It.Is<MercadoPagoPaymentRequest>(payment =>
                 payment.Amount == orcamento.ValorTotal &&
@@ -274,7 +283,6 @@ public class OrcamentoHandlersTests
                 It.IsAny<MercadoPagoPaymentRequest>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(new MercadoPagoPaymentResult(
-                "order-id",
                 "payment-id",
                 "failed",
                 "cc_rejected_other_reason"));
@@ -316,6 +324,27 @@ public class OrcamentoHandlersTests
             new PagarOrcamentoHandler(repository.Object, gateway.Object)
                 .Handle(orcamento.Id, NovaSolicitacaoPagamento(orcamento.Id), CancellationToken.None));
 
+        gateway.Verify(g => g.CreatePaymentAsync(
+            It.IsAny<MercadoPagoPaymentRequest>(),
+            It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    [InlineData(10.123)]
+    public async Task Pagar_DeveFalharQuandoValorDoOrcamentoNaoPodeSerCobrado(decimal valor)
+    {
+        var orcamento = new Orcamento(42, valor, "Serviço");
+        orcamento.AprovarOrcamento();
+        var repository = RepositoryComOrcamento(orcamento.Id, orcamento);
+        var gateway = new Mock<IMercadoPagoPaymentGateway>();
+
+        var exception = await Assert.ThrowsAsync<DomainException>(() =>
+            new PagarOrcamentoHandler(repository.Object, gateway.Object)
+                .Handle(orcamento.Id, NovaSolicitacaoPagamento(orcamento.Id), CancellationToken.None));
+
+        Assert.Contains("valor do orçamento", exception.Message, StringComparison.OrdinalIgnoreCase);
         gateway.Verify(g => g.CreatePaymentAsync(
             It.IsAny<MercadoPagoPaymentRequest>(),
             It.IsAny<CancellationToken>()), Times.Never);

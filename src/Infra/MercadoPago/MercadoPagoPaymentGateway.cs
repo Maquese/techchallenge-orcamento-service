@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -20,42 +19,25 @@ public sealed class MercadoPagoPaymentGateway(
         CancellationToken cancellationToken)
     {
         var accessToken = configuration["MercadoPago:AccessToken"];
-        if (string.IsNullOrWhiteSpace(accessToken) ||
-            !accessToken.StartsWith("TEST-", StringComparison.Ordinal))
+        if (string.IsNullOrWhiteSpace(accessToken))
         {
             throw new InvalidOperationException(
-                "Configure um Access Token de teste do Mercado Pago em MercadoPago:AccessToken.");
+                "Configure o Access Token do Mercado Pago em MercadoPago:AccessToken.");
         }
 
-        var amount = request.Amount.ToString("F2", CultureInfo.InvariantCulture);
-        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "v1/orders")
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "v1/payments")
         {
             Content = JsonContent.Create(new
             {
-                type = "online",
-                processing_mode = "automatic",
                 external_reference = request.ExternalReference,
-                total_amount = amount,
+                transaction_amount = request.Amount,
+                token = request.CardToken,
+                description = $"Pagamento do orçamento {request.ExternalReference}",
+                installments = request.Installments,
+                payment_method_id = request.PaymentMethodId,
                 payer = new
                 {
                     email = request.PayerEmail
-                },
-                transactions = new
-                {
-                    payments = new[]
-                    {
-                        new
-                        {
-                            amount,
-                            payment_method = new
-                            {
-                                id = request.PaymentMethodId,
-                                type = "credit_card",
-                                token = request.CardToken,
-                                installments = request.Installments
-                            }
-                        }
-                    }
                 }
             })
         };
@@ -76,82 +58,93 @@ public sealed class MercadoPagoPaymentGateway(
         using var response = responseMessage;
         if (!response.IsSuccessStatusCode)
         {
+            var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+            var providerError = GetProviderError(responseBody);
             logger.LogWarning(
-                "Mercado Pago order creation failed with HTTP status {StatusCode}.",
-                (int)response.StatusCode);
+                "Mercado Pago payment creation failed with HTTP status {StatusCode}. Provider error: {ProviderError}",
+                (int)response.StatusCode,
+                providerError ?? "No error details returned.");
             throw new PaymentProviderException((int)response.StatusCode);
         }
 
-        MercadoPagoOrderResponse? order;
+        MercadoPagoPaymentResponse? payment;
         try
         {
-            order = await response.Content.ReadFromJsonAsync<MercadoPagoOrderResponse>(
+            payment = await response.Content.ReadFromJsonAsync<MercadoPagoPaymentResponse>(
                 cancellationToken: cancellationToken);
         }
         catch (JsonException exception)
         {
-            logger.LogError(exception, "Mercado Pago returned an invalid order response.");
+            logger.LogError(exception, "Mercado Pago returned an invalid payment response.");
             throw new PaymentProviderException(502);
         }
 
-        if (string.IsNullOrWhiteSpace(order?.Id))
+        var paymentId = GetPaymentId(payment?.Id);
+        if (string.IsNullOrWhiteSpace(paymentId))
         {
-            logger.LogError("Mercado Pago returned a successful response without an order ID.");
+            logger.LogError("Mercado Pago returned a successful response without a payment ID.");
             throw new PaymentProviderException(502);
         }
 
-        var payment = order.Transactions?.Payments?.FirstOrDefault();
-        var status = payment?.Status ?? order.Status;
-        if (string.IsNullOrWhiteSpace(status))
+        if (string.IsNullOrWhiteSpace(payment?.Status))
         {
-            logger.LogError("Mercado Pago returned an order without a payment status.");
+            logger.LogError("Mercado Pago returned a payment without a status.");
             throw new PaymentProviderException(502);
         }
 
         return new MercadoPagoPaymentResult(
-            order.Id,
-            payment?.Id,
-            status,
-            payment?.StatusDetail ?? order.StatusDetail);
+            paymentId,
+            payment.Status,
+            payment.StatusDetail);
     }
 
-    private sealed class MercadoPagoOrderResponse
+    private static string? GetPaymentId(JsonElement? id) => id?.ValueKind switch
     {
-        public MercadoPagoOrderResponse()
+        JsonValueKind.String => id.Value.GetString(),
+        JsonValueKind.Number => id.Value.GetRawText(),
+        _ => null
+    };
+
+    private static string? GetProviderError(string responseBody)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(responseBody);
+            var root = document.RootElement;
+            if (root.TryGetProperty("message", out var message))
+                return message.GetString();
+
+            if (root.TryGetProperty("errors", out var errors) &&
+                errors.ValueKind == JsonValueKind.Array &&
+                errors.GetArrayLength() > 0)
+            {
+                var firstError = errors[0];
+                var code = firstError.TryGetProperty("code", out var errorCode)
+                    ? errorCode.GetString()
+                    : null;
+                var errorMessage = firstError.TryGetProperty("message", out var errorMessageElement)
+                    ? errorMessageElement.GetString()
+                    : null;
+                return string.Join(": ", new[] { code, errorMessage }.Where(value =>
+                    !string.IsNullOrWhiteSpace(value)));
+            }
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+
+        return null;
+    }
+
+    private sealed class MercadoPagoPaymentResponse
+    {
+        public MercadoPagoPaymentResponse()
         {
         }
 
         [JsonPropertyName("id")]
-        public string? Id { get; init; }
-
-        [JsonPropertyName("status")]
-        public string? Status { get; init; }
-
-        [JsonPropertyName("status_detail")]
-        public string? StatusDetail { get; init; }
-
-        [JsonPropertyName("transactions")]
-        public MercadoPagoTransactionsResponse? Transactions { get; init; }
-    }
-
-    private sealed class MercadoPagoTransactionsResponse
-    {
-        public MercadoPagoTransactionsResponse()
-        {
-        }
-
-        [JsonPropertyName("payments")]
-        public List<MercadoPagoOrderPaymentResponse>? Payments { get; init; }
-    }
-
-    private sealed class MercadoPagoOrderPaymentResponse
-    {
-        public MercadoPagoOrderPaymentResponse()
-        {
-        }
-
-        [JsonPropertyName("id")]
-        public string? Id { get; init; }
+        public JsonElement Id { get; init; }
 
         [JsonPropertyName("status")]
         public string? Status { get; init; }
