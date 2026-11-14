@@ -5,9 +5,12 @@ using Application.UseCases.Orcamentos;
 using Application.Models.Requests;
 using Application.Exceptions;
 using Domain.Exceptions;
+using System.Diagnostics.CodeAnalysis;
 
 namespace AutoReparaAPI.Controllers
 {
+
+    [ExcludeFromCodeCoverage]
     [Route("api/[controller]/[action]")]
     [ApiController]
     // [Authorize]

@@ -18,7 +18,11 @@ public class OrcamentoAprovadoHandler
             return new BaseResponse
             {
                 Success = true,
-                Data = new {OrcamentoAprovado = orcamento.OrcamentoAprovado.HasValue && orcamento.OrcamentoAprovado.Value},
+                Data = new
+                {
+                    OrcamentoAprovado = orcamento.OrcamentoAprovado == true &&
+                        orcamento.OrcamentoPago != true
+                },
                 Message = "Ok"
             };        
     }

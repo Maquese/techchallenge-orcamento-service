@@ -1,8 +1,9 @@
+using System.Diagnostics.CodeAnalysis;
 using Amazon.DynamoDBv2.DataModel;
-using Domain.Entidades;
 
-namespace Domain.Aggregates;
+namespace Infra.DbModels;
 
+[ExcludeFromCodeCoverage]
 [DynamoDBTable("Orcamento")]
 public class OrcamentoModel
 {
