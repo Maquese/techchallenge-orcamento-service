@@ -54,3 +54,7 @@ jobs:
         run: |
           docker push ${DOCKERHUB_IMAGE}:latest
           docker push ${DOCKERHUB_IMAGE}:${DOCKERHUB_TAG}
+      - name: Atualizar Deployment no Kubernetes
+        run: |
+          kubectl rollout restart deployment/orcamento-deployment
+          kubectl rollout status deployment/orcamento-deployment --timeout=180s
