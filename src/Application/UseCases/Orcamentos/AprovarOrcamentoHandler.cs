@@ -7,12 +7,10 @@ namespace Application.UseCases.Orcamentos;
 public class AprovarOrcamentoHandler
 {
     private readonly OrcamentoRepository _orcamentoRepository;
-    //private readonly OrdemServicoRepository _ordemServicoRepository;
 
-    public AprovarOrcamentoHandler(OrcamentoRepository orcamentoRepository)//, OrdemServicoRepository ordemServicoRepository)
+    public AprovarOrcamentoHandler(OrcamentoRepository orcamentoRepository)
     {
         _orcamentoRepository = orcamentoRepository;
-        //_ordemServicoRepository = ordemServicoRepository;
     }
     
      public async Task<BaseResponse> Handle(Guid orcamentoId)
@@ -22,17 +20,6 @@ public class AprovarOrcamentoHandler
         {
             throw new DomainException($"Orçamento com ID {orcamentoId} não encontrado.");
         }
-        
-        // var ordemServico = await _ordemServicoRepository.ObterPorId(orcamento.OrdemServicoId);
-        // if (ordemServico == null)
-        // {
-        //     throw new DomainException($"Ordem de serviço com ID {orcamento.OrdemServicoId} não encontrada.");
-        // }
-
-        // if(ordemServico.Status != "Aguardando aprovação")
-        // {
-        //     throw new DomainException($"Ordem de serviço com ID {ordemServico.Id} não está no status 'Aguardando aprovação' para aprovação de orçamento.");
-        // }
 
         if(!orcamento.EstaAtivo())
             throw new  DomainException("Orcamento inativo");
@@ -48,7 +35,6 @@ public class AprovarOrcamentoHandler
         }
                 
         orcamento.AprovarOrcamento();
-        //ordemServico.OSAprovada();
         await _orcamentoRepository.Atualizar(orcamento);
         return new BaseResponse
         {
