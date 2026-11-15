@@ -102,9 +102,10 @@ O pipeline exige cobertura mínima de 80% de linhas para os testes de Domain e A
 
 ### Evidência de cobertura
 
-Adicione o print da execução dos testes abaixo. Salve a imagem em `docs/images/cobertura-testes.png` ou ajuste o caminho para o arquivo que você adicionar ao repositório.
+O SonarQube mostra a cobertura de 97,1% na análise do projeto:
 
-![Evidência de cobertura dos testes](docs/images/cobertura-testes.png)
+![Evidência de cobertura dos testes](docs/images/imagem-1.png)
+![Evidência de cobertura dos testes](docs/images/imagem.png)
 
 ## Docker e Kubernetes
 
