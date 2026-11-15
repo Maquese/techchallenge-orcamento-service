@@ -104,8 +104,8 @@ O pipeline exige cobertura mínima de 80% de linhas para os testes de Domain e A
 
 O SonarQube mostra a cobertura de 97,1% na análise do projeto:
 
-![Evidência de cobertura dos testes](docs/images/imagem-1.png)
-![Evidência de cobertura dos testes](docs/images/imagem.png)
+![Evidência de cobertura dos testes](docs/images/image-1.png)
+![Evidência de cobertura dos testes](docs/images/image.png)
 
 ## Docker e Kubernetes
 
