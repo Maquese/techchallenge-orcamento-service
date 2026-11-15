@@ -47,7 +47,7 @@ namespace IOC;
                 _ => new AmazonDynamoDBClient(RegionEndpoint.GetBySystemName(regionName)));
 
 
-            services.AddScoped<IDynamoDBContext>(sp =>
+            services.AddScoped<IDynamoDBContext>(sp => 
             new DynamoDBContext(
                 sp.GetRequiredService<IAmazonDynamoDB>(),
                 new DynamoDBContextConfig
