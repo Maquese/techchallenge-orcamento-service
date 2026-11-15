@@ -7,4 +7,5 @@
   <Project Path="OrcamentoService/OrcamentoService.csproj" />
   <Project Path="Tests/Application.Tests/Application.Tests.csproj" />
   <Project Path="Tests/Domain.Tests/Domain.Tests.csproj" />
+  <Project Path="Tests/Infra.Tests/Infra.Tests.csproj" />
 </Solution>

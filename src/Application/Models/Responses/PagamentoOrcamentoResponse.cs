@@ -4,8 +4,7 @@ namespace Application.Models.Responses;
 public sealed record PagamentoOrcamentoResponse(
     Guid OrcamentoId,
     decimal Valor,
-    string MercadoPagoOrderId,
-    string? MercadoPagoPaymentId,
+    string MercadoPagoPaymentId,
     string Status,
     string? StatusDetail,
     bool Pago);

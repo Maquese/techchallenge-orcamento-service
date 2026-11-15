@@ -15,23 +15,15 @@ public class OrcamentoAprovadoHandler
     {
         var orcamento = await _orcamentoRepository.EncontrarOrcamentoPorOrdemServico(ordemServicoId);
         
-        if(orcamento.OrcamentoAprovado.HasValue && orcamento.OrcamentoAprovado.Value && !orcamento.OrcamentoPago.HasValue)
-        {
             return new BaseResponse
             {
                 Success = true,
-                Data = new {OrcamentoAprovado = true },
+                Data = new
+                {
+                    OrcamentoAprovado = orcamento.OrcamentoAprovado == true &&
+                        orcamento.OrcamentoPago != true
+                },
                 Message = "Ok"
-            };
-        }
-        else
-        {
-            return new BaseResponse
-            {
-                Success = true,
-                Data = new {OrcamentoAprovado = false },
-                Message = "Ok"
-            };
-        }
+            };        
     }
 }

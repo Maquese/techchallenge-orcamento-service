@@ -2,9 +2,11 @@
 using Application.Interfaces;
 using Amazon.DynamoDBv2.DataModel;
 using Amazon.DynamoDBv2.DocumentModel;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Infra.Repository;
 
+[ExcludeFromCodeCoverage]
 public class OrcamentoRepositoryImp : BaseRepositoryImp<Orcamento>, OrcamentoRepository
 {
     public OrcamentoRepositoryImp(IDynamoDBContext context) : base(context)

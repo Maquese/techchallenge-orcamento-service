@@ -10,8 +10,7 @@ public sealed record MercadoPagoPaymentRequest(
     string PayerEmail);
 
 public sealed record MercadoPagoPaymentResult(
-    string OrderId,
-    string? PaymentId,
+    string PaymentId,
     string Status,
     string? StatusDetail);
 

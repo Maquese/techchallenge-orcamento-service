@@ -63,31 +63,36 @@ public class Orcamento : IEntity
     }
 
     public void RegistrarResultadoPagamento(
-        string orderId,
-        string? paymentId,
+        string paymentId,
         string status,
         string? statusDetail)
     {
-        MercadoPagoOrderId = orderId;
         MercadoPagoPaymentId = paymentId;
         MercadoPagoPaymentStatus = status;
         MercadoPagoPaymentStatusDetail = statusDetail;
 
-        if (string.Equals(status, "processed", StringComparison.OrdinalIgnoreCase) &&
-            string.Equals(statusDetail, "accredited", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(status, "approved", StringComparison.OrdinalIgnoreCase) ||
+            (string.Equals(status, "processed", StringComparison.OrdinalIgnoreCase) &&
+             string.Equals(statusDetail, "accredited", StringComparison.OrdinalIgnoreCase)))
         {
             MarcarOrcamentoPago();
         }
     }
 
-    public void RegistrarChaveIdempotenciaPagamento(string idempotencyKey)
+    public void IniciarPagamento(string idempotencyKey)
     {
         MercadoPagoIdempotencyKey = idempotencyKey;
+        MercadoPagoOrderId = null;
+        MercadoPagoPaymentId = null;
+        MercadoPagoPaymentStatus = "processing";
+        MercadoPagoPaymentStatusDetail = "awaiting_provider_response";
     }
 
-    public void LimparChaveIdempotenciaPagamento()
+    public void RegistrarFalhaAoIniciarPagamento()
     {
         MercadoPagoIdempotencyKey = null;
+        MercadoPagoPaymentStatus = "failed";
+        MercadoPagoPaymentStatusDetail = "provider_rejected_request";
     }
 
     public void MarcarOrcamentoNaoPago()

@@ -3,9 +3,12 @@ using Domain.Exceptions;
 using Application.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using Amazon.DynamoDBv2.DataModel;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Infra;
 
+
+[ExcludeFromCodeCoverage]
 public class BaseRepositoryImp<T> : BaseRepository<T> where T : IEntity
 {
     //protected readonly EFContext _context;
